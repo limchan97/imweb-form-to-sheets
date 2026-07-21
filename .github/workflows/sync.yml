@@ -26,7 +26,7 @@ jobs:
           IMWEB_ADMIN_ID: ${{ secrets.IMWEB_ADMIN_ID }}
           IMWEB_ADMIN_PW: ${{ secrets.IMWEB_ADMIN_PW }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: python scripts/sync_form_to_sheet.py
+        run: python scripts/diagnose_dupes.py
 
       - name: 디버그 스크린샷 업로드
         if: failure()
