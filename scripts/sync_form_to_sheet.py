@@ -59,9 +59,18 @@ def download_form_excel() -> pd.DataFrame:
             page.goto(ADMIN_FORM_URL)
             page.wait_for_load_state("networkidle")
 
-        with page.expect_download() as download_info:
-            page.click(EXPORT_BUTTON_SELECTOR)
-        download = download_info.value
+        try:
+            with page.expect_download() as download_info:
+                page.click(EXPORT_BUTTON_SELECTOR)
+            download = download_info.value
+        except Exception:
+            debug_dir = os.environ.get("DEBUG_ARTIFACT_DIR", ".")
+            page.screenshot(path=os.path.join(debug_dir, "debug.png"), full_page=True)
+            with open(os.path.join(debug_dir, "debug.html"), "w", encoding="utf-8") as f:
+                f.write(page.content())
+            print(f"현재 페이지 URL: {page.url}", file=sys.stderr)
+            browser.close()
+            raise
 
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
             download.save_as(tmp.name)
