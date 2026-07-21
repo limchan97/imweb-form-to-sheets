@@ -33,8 +33,8 @@ DEDUPE_COLUMNS = ["성함", "연락처", "방문 희망일"]
 # ── 셀렉터 (⚠ 최초 1회 실제 페이지에서 반드시 확인/수정 필요) ──────
 # 아임웹 로그인 폼 인풋/버튼의 실제 name·id·class는 사이트마다 다를 수 있어
 # 아래 값은 일반적인 아임웹 관리자 로그인 폼 구조를 기준으로 한 최선의 추정치다.
-LOGIN_ID_SELECTOR = 'input[name="email"]'
-LOGIN_PW_SELECTOR = 'input[name="password"]'
+LOGIN_ID_SELECTOR = 'input[name="uid"]'
+LOGIN_PW_SELECTOR = 'input[name="passwd"]'
 LOGIN_SUBMIT_SELECTOR = 'button[type="submit"]'
 EXPORT_BUTTON_SELECTOR = 'text=내보내기'
 
