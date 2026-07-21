@@ -36,7 +36,9 @@ DEDUPE_COLUMNS = ["성함", "연락처", "방문 희망일"]
 LOGIN_ID_SELECTOR = 'input[name="uid"]'
 LOGIN_PW_SELECTOR = 'input[name="passwd"]'
 LOGIN_SUBMIT_SELECTOR = 'button[type="submit"]'
-EXPORT_BUTTON_SELECTOR = 'text=내보내기'
+EXPORT_OPEN_SELECTOR = 'text=내보내기'
+GENERATE_BUTTON_SELECTOR = 'button:has-text("파일 생성")'
+GENERATED_FILE_LINK_SELECTOR = 'text=/\\.xlsx$/'
 
 
 def download_form_excel() -> pd.DataFrame:
@@ -60,8 +62,15 @@ def download_form_excel() -> pd.DataFrame:
             page.wait_for_load_state("networkidle")
 
         try:
+            # "내보내기" 클릭은 즉시 다운로드하지 않고 모달을 연다.
+            page.click(EXPORT_OPEN_SELECTOR)
+            # 모달 안의 "파일 생성" 버튼을 눌러야 서버가 엑셀 파일을 비동기로 생성한다.
+            page.click(GENERATE_BUTTON_SELECTOR)
+            # 파일 생성이 끝나면 목록에 .xlsx로 끝나는 파일명 링크가 나타난다.
+            file_link = page.locator(GENERATED_FILE_LINK_SELECTOR).first
+            file_link.wait_for(state="visible", timeout=60000)
             with page.expect_download() as download_info:
-                page.click(EXPORT_BUTTON_SELECTOR)
+                file_link.click()
             download = download_info.value
         except Exception:
             debug_dir = os.environ.get("DEBUG_ARTIFACT_DIR", ".")
