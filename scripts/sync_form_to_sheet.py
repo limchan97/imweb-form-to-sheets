@@ -38,7 +38,7 @@ LOGIN_PW_SELECTOR = 'input[name="passwd"]'
 LOGIN_SUBMIT_SELECTOR = 'button[type="submit"]'
 EXPORT_OPEN_SELECTOR = 'text=내보내기'
 GENERATE_BUTTON_SELECTOR = 'button:has-text("파일 생성")'
-GENERATED_FILE_LINK_SELECTOR = 'text=/\\.xlsx$/'
+GENERATED_FILE_LINK_SELECTOR = 'a[href*="download_excel_contents"]'
 
 
 def download_form_excel() -> pd.DataFrame:
