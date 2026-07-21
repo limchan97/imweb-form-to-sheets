@@ -1,0 +1,29 @@
+name: 아임웹 입력폼 -> 구글시트 동기화
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: 동기화 실행
+        env:
+          IMWEB_ADMIN_ID: ${{ secrets.IMWEB_ADMIN_ID }}
+          IMWEB_ADMIN_PW: ${{ secrets.IMWEB_ADMIN_PW }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python scripts/sync_form_to_sheet.py
