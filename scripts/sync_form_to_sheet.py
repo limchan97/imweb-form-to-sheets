@@ -28,7 +28,7 @@ SPREADSHEET_ID = "1-V6-SzJc3wBKnAB_elUA2wNMnK-lFTjSLmf6xza0fUs"
 WORKSHEET_GID = 1385031413
 
 # 새 데이터인지 판별할 때 기준으로 삼는 컬럼들 (엑셀/시트에 모두 존재해야 함)
-DEDUPE_COLUMNS = ["성함", "연락처", "방문 희망일"]
+DEDUPE_COLUMNS = ["성함", "연락처", "방문 희망일 (월~금 10:00~19:00, 토~일 및 공휴일 10:00~16:00)"]
 
 # ── 셀렉터 (⚠ 최초 1회 실제 페이지에서 반드시 확인/수정 필요) ──────
 # 아임웹 로그인 폼 인풋/버튼의 실제 name·id·class는 사이트마다 다를 수 있어
@@ -122,6 +122,7 @@ def main():
         sys.exit(1)
 
     worksheet = open_worksheet()
+    print(f"[디버그] 시트 헤더: {worksheet.row_values(1)}", file=sys.stderr)
     seen, header = existing_keys(worksheet)
 
     new_rows = []
