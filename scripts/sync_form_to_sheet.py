@@ -1,9 +1,13 @@
 """
-아임웹 입력폼(울써마지 대학 제휴 DB) 데이터를 구글시트로 동기화.
+아임웹 입력폼("대학 제휴 DB") 데이터를 구글시트로 동기화.
 
 아임웹은 입력폼 데이터에 대한 공식 API/웹훅을 제공하지 않으므로,
 관리자 페이지에 자동 로그인해 "내보내기(엑셀)"로 데이터를 받아온 뒤
 구글시트에 없는 새 행만 추가하는 방식으로 동작한다.
+
+대상 시트("대학 제휴 DB" 탭)는 1행이 아니라 2행이 헤더이고,
+G~I열("1차"/"2차"/"예약 여부")은 콜팀이 수기로 관리하는 칸이라
+동기화 시 절대 건드리지 않고 A~F열만 채운다.
 
 환경 변수 (GitHub Actions Secrets로 주입):
   IMWEB_ADMIN_ID              아임웹 관리자 로그인 아이디
@@ -11,7 +15,6 @@
   GOOGLE_SERVICE_ACCOUNT_JSON 구글 서비스 계정 키(JSON) 전체 내용
 """
 
-import io
 import json
 import os
 import sys
@@ -25,14 +28,24 @@ from playwright.sync_api import sync_playwright
 # ── 사이트/시트 설정 ──────────────────────────────────────────────
 ADMIN_FORM_URL = "https://dearchungdam.imweb.me/admin/contents/form?board_code=b2025031493a703dc00363"
 SPREADSHEET_ID = "1-V6-SzJc3wBKnAB_elUA2wNMnK-lFTjSLmf6xza0fUs"
-WORKSHEET_GID = 1385031413
+WORKSHEET_GID = 1385031413  # "대학 제휴 DB" 탭
+HEADER_ROW = 2  # 이 탭은 1행이 아니라 2행이 헤더
 
-# 새 데이터인지 판별할 때 기준으로 삼는 컬럼들 (엑셀/시트에 모두 존재해야 함)
-DEDUPE_COLUMNS = ["성함", "연락처", "방문 희망일 (월~금 10:00~19:00, 토~일 및 공휴일 10:00~16:00)"]
+# (시트 컬럼명, 엑셀 컬럼명) 순서쌍. 시트의 A~F열에 그대로 대응한다.
+# G~I열("1차"/"2차"/"예약 여부")은 콜팀 수기 입력란이라 여기 포함하지 않는다.
+COLUMN_MAP = [
+    ("학교명", "학교명"),
+    ("성함", "성함"),
+    ("연락처", "연락처"),
+    ("당일 시술 희망 여부", "당일 시술 희망 여부"),
+    ("방문 희망일", "방문 희망일 (월~금 10:00~19:00, 토~일 및 공휴일 10:00~16:00)"),
+    ("피부 고민 및 원하는 시술", "피부 고민이나 원하시는 시술이 있으시면 기재해주세요."),
+]
 
-# ── 셀렉터 (⚠ 최초 1회 실제 페이지에서 반드시 확인/수정 필요) ──────
-# 아임웹 로그인 폼 인풋/버튼의 실제 name·id·class는 사이트마다 다를 수 있어
-# 아래 값은 일반적인 아임웹 관리자 로그인 폼 구조를 기준으로 한 최선의 추정치다.
+# 새 데이터인지 판별할 때 기준으로 삼는 시트 컬럼명 (중복 신청 방지용 키)
+DEDUPE_SHEET_COLUMNS = ["성함", "연락처", "방문 희망일"]
+
+# ── 셀렉터 ──────────────────────────────────────────────────────
 LOGIN_ID_SELECTOR = 'input[name="uid"]'
 LOGIN_PW_SELECTOR = 'input[name="passwd"]'
 LOGIN_SUBMIT_SELECTOR = 'button[type="submit"]'
@@ -66,7 +79,7 @@ def download_form_excel() -> pd.DataFrame:
             page.click(EXPORT_OPEN_SELECTOR)
             # 모달 안의 "파일 생성" 버튼을 눌러야 서버가 엑셀 파일을 비동기로 생성한다.
             page.click(GENERATE_BUTTON_SELECTOR)
-            # 파일 생성이 끝나면 목록에 .xlsx로 끝나는 파일명 링크가 나타난다.
+            # 파일 생성이 끝나면 목록에 다운로드 링크가 나타난다.
             file_link = page.locator(GENERATED_FILE_LINK_SELECTOR).first
             file_link.wait_for(state="visible", timeout=60000)
             with page.expect_download() as download_info:
@@ -101,14 +114,18 @@ def open_worksheet() -> gspread.Worksheet:
     return spreadsheet.get_worksheet_by_id(WORKSHEET_GID)
 
 
-def existing_keys(worksheet: gspread.Worksheet) -> tuple[set, list]:
-    records = worksheet.get_all_records()
-    keys = {
-        tuple(str(record.get(col, "")).strip() for col in DEDUPE_COLUMNS)
+def existing_keys(worksheet: gspread.Worksheet) -> set:
+    records = worksheet.get_all_records(head=HEADER_ROW)
+    return {
+        tuple(str(record.get(col, "")).strip() for col in DEDUPE_SHEET_COLUMNS)
         for record in records
     }
-    header = worksheet.row_values(1)
-    return keys, header
+
+
+def next_empty_row(worksheet: gspread.Worksheet) -> int:
+    # B열("성함")에 값이 있는 마지막 행 다음 줄에 이어서 쓴다.
+    col_b = worksheet.col_values(2)
+    return max(len(col_b) + 1, HEADER_ROW + 1)
 
 
 def main():
@@ -116,29 +133,38 @@ def main():
     df = download_form_excel()
     print(f"엑셀에서 {len(df)}건 확인")
 
-    missing = [c for c in DEDUPE_COLUMNS if c not in df.columns]
+    missing = [excel_col for _, excel_col in COLUMN_MAP if excel_col not in df.columns]
     if missing:
         print(f"엑셀에 예상 컬럼이 없습니다: {missing}. 실제 컬럼: {list(df.columns)}", file=sys.stderr)
         sys.exit(1)
 
     worksheet = open_worksheet()
-    print(f"[디버그] 시트 헤더: {worksheet.row_values(1)}", file=sys.stderr)
-    seen, header = existing_keys(worksheet)
+    seen = existing_keys(worksheet)
+
+    dedupe_excel_cols = dict(COLUMN_MAP)
+    excel_cols_for_key = [dedupe_excel_cols[c] for c in DEDUPE_SHEET_COLUMNS]
 
     new_rows = []
     for _, row in df.iterrows():
-        key = tuple(str(row.get(col, "")).strip() for col in DEDUPE_COLUMNS)
+        key = tuple(str(row.get(col, "")).strip() for col in excel_cols_for_key)
         if key in seen:
             continue
         seen.add(key)
-        new_rows.append([str(row.get(col, "")) for col in header])
+        new_rows.append([str(row.get(excel_col, "")) for _, excel_col in COLUMN_MAP])
 
     if not new_rows:
         print("새로 추가할 데이터가 없습니다.")
         return
 
-    worksheet.append_rows(new_rows, value_input_option="USER_ENTERED")
-    print(f"{len(new_rows)}건을 구글시트에 추가했습니다.")
+    start_row = next_empty_row(worksheet)
+    end_row = start_row + len(new_rows) - 1
+    end_col_letter = chr(ord("A") + len(COLUMN_MAP) - 1)  # F
+    worksheet.update(
+        range_name=f"A{start_row}:{end_col_letter}{end_row}",
+        values=new_rows,
+        value_input_option="USER_ENTERED",
+    )
+    print(f"{len(new_rows)}건을 구글시트 {start_row}행부터 추가했습니다.")
 
 
 if __name__ == "__main__":
