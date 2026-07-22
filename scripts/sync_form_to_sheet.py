@@ -120,6 +120,9 @@ def filter_recent(df: pd.DataFrame) -> pd.DataFrame:
 
     timestamps = pd.to_datetime(df[TIMESTAMP_EXCEL_COLUMN], errors="coerce")
     cutoff = (datetime.now(KST) - timedelta(hours=LOOKBACK_HOURS)).replace(tzinfo=None)
+    print(f"[진단] 현재 KST: {datetime.now(KST)}, cutoff(naive): {cutoff}", file=sys.stderr)
+    print(f"[진단] 엑셀 최근 5건 응답시간 원본값: {df[TIMESTAMP_EXCEL_COLUMN].tail(5).tolist()}", file=sys.stderr)
+    print(f"[진단] 파싱된 최근 5건: {timestamps.tail(5).tolist()}", file=sys.stderr)
     return df[timestamps >= cutoff]
 
 
