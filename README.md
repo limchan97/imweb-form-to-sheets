@@ -1,7 +1,7 @@
 # 아임웹 입력폼 → 구글시트 자동 동기화
 
 청담디어의원 아임웹 관리자 페이지의 "울써마지 대학 제휴 DB" 입력폼 신청 데이터를
-3시간마다 자동으로 [구글시트](https://docs.google.com/spreadsheets/d/1-V6-SzJc3wBKnAB_elUA2wNMnK-lFTjSLmf6xza0fUs)로 옮기는 자동화입니다.
+운영 시간(오전 10시~오후 5시) 중 1시간마다 자동으로 [구글시트](https://docs.google.com/spreadsheets/d/1-V6-SzJc3wBKnAB_elUA2wNMnK-lFTjSLmf6xza0fUs)로 옮기는 자동화입니다.
 
 아임웹이 입력폼에 대한 공식 API/웹훅을 제공하지 않아, 관리자 페이지에 자동 로그인해
 "내보내기" 엑셀을 받아온 뒤 구글시트에 없는 새 데이터만 추가하는 방식으로 동작합니다.
@@ -45,6 +45,6 @@ gh secret set GOOGLE_SERVICE_ACCOUNT_JSON --repo <본인계정>/<저장소이름
    수정해야 할 수 있습니다 — 실패 로그를 저에게 알려주시면 같이 고치겠습니다.
 
 ## 이후 운영
-- 등록만 해두면 3시간마다 자동으로 실행됩니다 (Actions 탭에서 실행 이력 확인 가능)
+- 등록만 해두면 운영 시간(오전 10시~오후 5시) 중 1시간마다 자동으로 실행됩니다 (Actions 탭에서 실행 이력 확인 가능)
 - 아임웹 관리자 페이지 UI가 바뀌면 스크립트가 실패할 수 있으니, 가끔 Actions 탭에서
   실행 실패(빨간 X) 여부를 확인해주세요

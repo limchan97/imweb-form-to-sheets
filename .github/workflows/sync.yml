@@ -2,7 +2,8 @@ name: 아임웹 입력폼 -> 구글시트 동기화
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    # 매시 정각, UTC 01:00~08:00 = KST 10:00~17:00 (운영 시간 중 1시간마다)
+    - cron: "0 1-8 * * *"
   workflow_dispatch: {}
 
 jobs:
