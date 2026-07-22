@@ -52,6 +52,23 @@ COLUMN_MAP = [
 # 새 데이터인지 판별할 때 기준으로 삼는 시트 컬럼명 (중복 신청 방지용 키)
 DEDUPE_SHEET_COLUMNS = ["성함", "연락처", "방문 희망일"]
 
+
+def _normalize_key_value(column_name: str, value) -> str:
+    """dedupe 키 비교용 정규화.
+
+    "연락처"는 엑셀을 다시 내보낼 때마다 텍스트("010-1234-5678")로 나올 때와
+    숫자로 인식되어 앞자리 0과 대시가 사라진 값("1012345678")으로 나올 때가 섞여
+    있어서, 숫자만 남기고 10자리(0 없이 시작)면 앞에 0을 붙여 맞춘다.
+    """
+    text = str(value).strip()
+    if column_name != "연락처":
+        return text
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if len(digits) == 10 and not digits.startswith("0"):
+        digits = "0" + digits
+    return digits
+
+
 # ── 셀렉터 ──────────────────────────────────────────────────────
 LOGIN_ID_SELECTOR = 'input[name="uid"]'
 LOGIN_PW_SELECTOR = 'input[name="passwd"]'
@@ -135,7 +152,7 @@ def open_worksheet() -> gspread.Worksheet:
 def existing_keys(worksheet: gspread.Worksheet) -> set:
     records = worksheet.get_all_records(head=HEADER_ROW)
     return {
-        tuple(str(record.get(col, "")).strip() for col in DEDUPE_SHEET_COLUMNS)
+        tuple(_normalize_key_value(col, record.get(col, "")) for col in DEDUPE_SHEET_COLUMNS)
         for record in records
     }
 
@@ -171,7 +188,10 @@ def main():
 
     new_rows = []
     for _, row in df.iterrows():
-        key = tuple(str(row.get(col, "")).strip() for col in excel_cols_for_key)
+        key = tuple(
+            _normalize_key_value(sheet_col, row.get(excel_col, ""))
+            for sheet_col, excel_col in zip(DEDUPE_SHEET_COLUMNS, excel_cols_for_key)
+        )
         if key in seen:
             continue
         seen.add(key)
