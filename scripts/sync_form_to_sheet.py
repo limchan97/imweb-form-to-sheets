@@ -102,6 +102,7 @@ def download_form_excel() -> pd.DataFrame:
 
     df = pd.read_excel(excel_path)
     os.unlink(excel_path)
+    print(f"[진단] 엑셀 컬럼 목록: {list(df.columns)}", file=sys.stderr)
     return df
 
 
