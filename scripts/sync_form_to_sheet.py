@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 
 import gspread
 import pandas as pd
@@ -30,6 +31,12 @@ ADMIN_FORM_URL = "https://dearchungdam.imweb.me/admin/contents/form?board_code=b
 SPREADSHEET_ID = "1-V6-SzJc3wBKnAB_elUA2wNMnK-lFTjSLmf6xza0fUs"
 WORKSHEET_GID = 1385031413  # "대학 제휴 DB" 탭
 HEADER_ROW = 2  # 이 탭은 1행이 아니라 2행이 헤더
+
+# 엑셀의 작성시각 컬럼명 (예: "2026-07-22 10:56:07", 한국시간 기준)
+TIMESTAMP_EXCEL_COLUMN = "응답시간"
+KST = timezone(timedelta(hours=9))
+# 동기화 주기(3시간)와 맞추되, 워크플로우 실행이 약간 지연되는 경우를 대비해 여유를 둔다.
+LOOKBACK_HOURS = 3.5
 
 # (시트 컬럼명, 엑셀 컬럼명) 순서쌍. 시트의 A~F열에 그대로 대응한다.
 # G~I열("1차"/"2차"/"예약 여부")은 콜팀 수기 입력란이라 여기 포함하지 않는다.
@@ -102,9 +109,18 @@ def download_form_excel() -> pd.DataFrame:
 
     df = pd.read_excel(excel_path)
     os.unlink(excel_path)
-    print(f"[진단] 응답시간 dtype: {df['응답시간'].dtype}", file=sys.stderr)
-    print(f"[진단] 응답시간 샘플: {df['응답시간'].head(5).tolist()}", file=sys.stderr)
     return df
+
+
+def filter_recent(df: pd.DataFrame) -> pd.DataFrame:
+    """작성시각이 LOOKBACK_HOURS 이내인 행만 남긴다."""
+    if TIMESTAMP_EXCEL_COLUMN not in df.columns:
+        print(f"엑셀에 '{TIMESTAMP_EXCEL_COLUMN}' 컬럼이 없습니다. 실제 컬럼: {list(df.columns)}", file=sys.stderr)
+        sys.exit(1)
+
+    timestamps = pd.to_datetime(df[TIMESTAMP_EXCEL_COLUMN], errors="coerce")
+    cutoff = (datetime.now(KST) - timedelta(hours=LOOKBACK_HOURS)).replace(tzinfo=None)
+    return df[timestamps >= cutoff]
 
 
 def open_worksheet() -> gspread.Worksheet:
@@ -133,7 +149,14 @@ def next_empty_row(worksheet: gspread.Worksheet) -> int:
 def main():
     print("아임웹에서 입력폼 데이터 내려받는 중...")
     df = download_form_excel()
-    print(f"엑셀에서 {len(df)}건 확인")
+    print(f"엑셀에서 전체 {len(df)}건 확인")
+
+    df = filter_recent(df)
+    print(f"최근 {LOOKBACK_HOURS}시간 이내 작성분 {len(df)}건으로 필터링")
+
+    if df.empty:
+        print("최근 작성된 데이터가 없습니다.")
+        return
 
     missing = [excel_col for _, excel_col in COLUMN_MAP if excel_col not in df.columns]
     if missing:
