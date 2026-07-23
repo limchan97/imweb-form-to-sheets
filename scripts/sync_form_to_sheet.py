@@ -36,7 +36,7 @@ HEADER_ROW = 2  # 이 탭은 1행이 아니라 2행이 헤더
 TIMESTAMP_EXCEL_COLUMN = "응답시간"
 KST = timezone(timedelta(hours=9))
 # 동기화 주기(1시간, 운영시간 10:00~17:00 KST 내 매시 정각)와 맞춘다.
-LOOKBACK_HOURS = 17
+LOOKBACK_HOURS = 1
 
 # (시트 컬럼명, 엑셀 컬럼명) 순서쌍. 시트의 A~F열에 그대로 대응한다.
 # G~I열("1차"/"2차"/"예약 여부")은 콜팀 수기 입력란이라 여기 포함하지 않는다.
